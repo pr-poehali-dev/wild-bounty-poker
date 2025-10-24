@@ -18,6 +18,10 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				sans: ['Roboto', 'sans-serif'],
+				heading: ['Oswald', 'sans-serif'],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -84,11 +88,40 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'deal-card': {
+					'0%': {
+						transform: 'translateY(-100%) rotateX(-90deg)',
+						opacity: '0'
+					},
+					'100%': {
+						transform: 'translateY(0) rotateX(0)',
+						opacity: '1'
+					}
+				},
+				'win-glow': {
+					'0%, 100%': {
+						boxShadow: '0 0 20px rgba(255, 215, 0, 0.5)'
+					},
+					'50%': {
+						boxShadow: '0 0 40px rgba(255, 215, 0, 0.9)'
+					}
+				},
+				'pulse-gold': {
+					'0%, 100%': {
+						opacity: '1'
+					},
+					'50%': {
+						opacity: '0.6'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'deal-card': 'deal-card 0.5s ease-out',
+				'win-glow': 'win-glow 1s ease-in-out infinite',
+				'pulse-gold': 'pulse-gold 2s ease-in-out infinite'
 			}
 		}
 	},

@@ -60,14 +60,8 @@ const Index = () => {
   const suits: Suit[] = ['♠', '♥', '♦', '♣'];
 
   const getRandomCard = (): PlayingCard => {
-    const lowRanks = ['2', '3', '4', '5', '6', '7', '8', '9'];
-    const weightedRanks = [];
-    for (let i = 0; i < 100; i++) {
-      weightedRanks.push(...lowRanks);
-    }
-    weightedRanks.push(...ranks);
     const suit = suits[Math.floor(Math.random() * suits.length)];
-    const rank = weightedRanks[Math.floor(Math.random() * weightedRanks.length)] as Rank;
+    const rank = ranks[Math.floor(Math.random() * ranks.length)];
     return { suit, rank, id: `${rank}${suit}-${Math.random()}` };
   };
 
@@ -81,23 +75,14 @@ const Index = () => {
     });
 
     const counts = Object.values(rankCounts).sort((a, b) => b - a);
-    const isFlush = Object.values(suitCounts).some(count => count >= 5);
+    const isFlush = Object.values(suitCounts).some(count => count === 5);
     
     const rankValues: { [key: string]: number } = {
       'A': 14, 'K': 13, 'Q': 12, 'J': 11, '10': 10, '9': 9, '8': 8, '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2
     };
     const sortedValues = hand.map(c => rankValues[c.rank]).sort((a, b) => a - b);
-    let isStraight = false;
-    let isRoyal = false;
-    for (let i = 0; i <= sortedValues.length - 5; i++) {
-      const slice = sortedValues.slice(i, i + 5);
-      const checkStraight = slice.every((val, idx) => idx === 0 || val === slice[idx - 1] + 1);
-      if (checkStraight) {
-        isStraight = true;
-        if (slice[0] === 10) isRoyal = true;
-        break;
-      }
-    }
+    const isStraight = sortedValues.every((val, i) => i === 0 || val === sortedValues[i - 1] + 1);
+    const isRoyal = isStraight && sortedValues[0] === 10;
 
     if (isRoyal && isFlush) return { name: 'Роял Флеш', multiplier: 250 };
     if (isStraight && isFlush) return { name: 'Стрит Флеш', multiplier: 50 };
@@ -123,7 +108,7 @@ const Index = () => {
     setBalance(prev => prev - betAmount);
 
     const newCards: PlayingCard[] = [];
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 5; i++) {
       newCards.push(getRandomCard());
     }
     
@@ -207,14 +192,14 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <Card className="p-6 bg-gradient-to-br from-card to-muted border-2 border-primary/30">
-              <div className="grid grid-cols-7 gap-3">
+              <div className="grid grid-cols-5 gap-3">
                 {cards.length === 0 ? (
-                  Array.from({ length: 7 }).map((_, i) => (
+                  Array.from({ length: 5 }).map((_, i) => (
                     <div
                       key={i}
                       className="aspect-[2/3] bg-muted border-2 border-border rounded-lg flex items-center justify-center"
                     >
-                      <Icon name="HelpCircle" size={40} className="text-muted-foreground" />
+                      <Icon name="HelpCircle" size={48} className="text-muted-foreground" />
                     </div>
                   ))
                 ) : (

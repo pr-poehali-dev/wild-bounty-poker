@@ -21,11 +21,10 @@ interface PlayingCard {
 interface GameHistory {
   id: string;
   bet: number;
-  cards: PlayingCard[][];
-  combinations: string[];
+  cards: PlayingCard[];
+  combination: string;
   win: number;
   timestamp: Date;
-  bonusTriggered?: boolean;
 }
 
 interface PokerCombination {
@@ -49,26 +48,24 @@ const POKER_COMBINATIONS: PokerCombination[] = [
 const Index = () => {
   const [balance, setBalance] = useState(10000);
   const [betAmount, setBetAmount] = useState(100);
-  const [cardRows, setCardRows] = useState<PlayingCard[][]>([[], [], []]);
+  const [cards, setCards] = useState<PlayingCard[]>([]);
   const [isDealing, setIsDealing] = useState(false);
   const [history, setHistory] = useState<GameHistory[]>([]);
   const [autoPlay, setAutoPlay] = useState(false);
   const [autoPlayCount, setAutoPlayCount] = useState(10);
   const [currentAutoPlay, setCurrentAutoPlay] = useState(0);
   const [lastWin, setLastWin] = useState(0);
-  const [bonusSpins, setBonusSpins] = useState(0);
-  const [totalGames, setTotalGames] = useState(0);
 
   const ranks: Rank[] = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
   const suits: Suit[] = ['♠', '♥', '♦', '♣'];
 
   const getRandomCard = (): PlayingCard => {
     const lowRanks = ['2', '3', '4', '5', '6', '7', '8', '9'];
-    const weightedRanks = [
-      ...lowRanks, ...lowRanks, ...lowRanks, ...lowRanks, ...lowRanks,
-      ...lowRanks, ...lowRanks, ...lowRanks, ...lowRanks, ...lowRanks,
-      ...ranks
-    ];
+    const weightedRanks = [];
+    for (let i = 0; i < 100; i++) {
+      weightedRanks.push(...lowRanks);
+    }
+    weightedRanks.push(...ranks);
     const suit = suits[Math.floor(Math.random() * suits.length)];
     const rank = weightedRanks[Math.floor(Math.random() * weightedRanks.length)] as Rank;
     return { suit, rank, id: `${rank}${suit}-${Math.random()}` };
@@ -84,14 +81,23 @@ const Index = () => {
     });
 
     const counts = Object.values(rankCounts).sort((a, b) => b - a);
-    const isFlush = Object.values(suitCounts).some(count => count === 5);
+    const isFlush = Object.values(suitCounts).some(count => count >= 5);
     
     const rankValues: { [key: string]: number } = {
       'A': 14, 'K': 13, 'Q': 12, 'J': 11, '10': 10, '9': 9, '8': 8, '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2
     };
     const sortedValues = hand.map(c => rankValues[c.rank]).sort((a, b) => a - b);
-    const isStraight = sortedValues.every((val, i) => i === 0 || val === sortedValues[i - 1] + 1);
-    const isRoyal = isStraight && sortedValues[0] === 10;
+    let isStraight = false;
+    let isRoyal = false;
+    for (let i = 0; i <= sortedValues.length - 5; i++) {
+      const slice = sortedValues.slice(i, i + 5);
+      const checkStraight = slice.every((val, idx) => idx === 0 || val === slice[idx - 1] + 1);
+      if (checkStraight) {
+        isStraight = true;
+        if (slice[0] === 10) isRoyal = true;
+        break;
+      }
+    }
 
     if (isRoyal && isFlush) return { name: 'Роял Флеш', multiplier: 250 };
     if (isStraight && isFlush) return { name: 'Стрит Флеш', multiplier: 50 };
@@ -107,62 +113,41 @@ const Index = () => {
   };
 
   const dealCards = () => {
-    if (bonusSpins === 0 && balance < betAmount) {
+    if (balance < betAmount) {
       toast.error('Недостаточно средств!');
       return;
     }
 
     setIsDealing(true);
     setLastWin(0);
-    
-    if (bonusSpins > 0) {
-      setBonusSpins(prev => prev - 1);
-      toast.info(`Бонусный спин! Осталось: ${bonusSpins - 1}`);
-    } else {
-      setBalance(prev => prev - betAmount);
-    }
+    setBalance(prev => prev - betAmount);
 
-    setTotalGames(prev => prev + 1);
-
-    const newRows: PlayingCard[][] = [];
-    for (let row = 0; row < 3; row++) {
-      const rowCards: PlayingCard[] = [];
-      for (let i = 0; i < 5; i++) {
-        rowCards.push(getRandomCard());
-      }
-      newRows.push(rowCards);
+    const newCards: PlayingCard[] = [];
+    for (let i = 0; i < 7; i++) {
+      newCards.push(getRandomCard());
     }
     
-    setCardRows(newRows);
+    setCards(newCards);
 
     setTimeout(() => {
-      const results = newRows.map(row => checkCombination(row));
-      const totalMultiplier = results.reduce((sum, r) => sum + r.multiplier, 0);
-      const winAmount = totalMultiplier * betAmount;
+      const result = checkCombination(newCards);
+      const winAmount = result.multiplier * betAmount;
       
       if (winAmount > 0) {
         setBalance(prev => prev + winAmount);
         setLastWin(winAmount);
-        const combos = results.filter(r => r.multiplier > 0).map(r => r.name).join(', ');
-        toast.success(`${combos}! Выигрыш: ${winAmount} ₽`);
+        toast.success(`${result.name}! Выигрыш: ${winAmount} ₽`);
       } else {
-        toast.error('Нет выигрышных комбинаций');
-      }
-
-      if (totalGames > 0 && totalGames % 20 === 0) {
-        const bonusAmount = Math.floor(Math.random() * 3) + 3;
-        setBonusSpins(bonusAmount);
-        toast.success(`🎉 Бонус! ${bonusAmount} бесплатных спинов!`, { duration: 5000 });
+        toast.error('Нет выигрышной комбинации');
       }
 
       const gameRecord: GameHistory = {
         id: Date.now().toString(),
         bet: betAmount,
-        cards: newRows,
-        combinations: results.map(r => r.name),
+        cards: newCards,
+        combination: result.name,
         win: winAmount,
         timestamp: new Date(),
-        bonusTriggered: totalGames % 20 === 0,
       };
       
       setHistory(prev => [gameRecord, ...prev].slice(0, 20));
@@ -210,12 +195,6 @@ const Index = () => {
               <Icon name="Coins" className="mr-2" size={20} />
               Баланс: {balance} ₽
             </Badge>
-            {bonusSpins > 0 && (
-              <Badge className="text-lg px-4 py-2 bg-accent text-accent-foreground animate-pulse-gold">
-                <Icon name="Gift" className="mr-2" size={20} />
-                Бонус: {bonusSpins} спинов
-              </Badge>
-            )}
             {lastWin > 0 && (
               <Badge className="text-lg px-4 py-2 bg-primary text-primary-foreground animate-win-glow">
                 <Icon name="TrendingUp" className="mr-2" size={20} />
@@ -228,36 +207,32 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <Card className="p-6 bg-gradient-to-br from-card to-muted border-2 border-primary/30">
-              <div className="space-y-3">
-                {cardRows.map((row, rowIndex) => (
-                  <div key={rowIndex} className="grid grid-cols-5 gap-2">
-                    {row.length === 0 ? (
-                      Array.from({ length: 5 }).map((_, i) => (
-                        <div
-                          key={i}
-                          className="aspect-[2/3] bg-muted border-2 border-border rounded-lg flex items-center justify-center"
-                        >
-                          <Icon name="HelpCircle" size={32} className="text-muted-foreground" />
-                        </div>
-                      ))
-                    ) : (
-                      row.map((card, i) => (
-                        <div
-                          key={card.id}
-                          className="aspect-[2/3] bg-white text-black border-4 border-accent rounded-lg flex flex-col items-center justify-center text-2xl md:text-4xl font-bold shadow-lg animate-deal-card"
-                          style={{ animationDelay: `${(rowIndex * 5 + i) * 0.05}s` }}
-                        >
-                          <div className={card.suit === '♥' || card.suit === '♦' ? 'text-red-600' : 'text-black'}>
-                            {card.rank}
-                          </div>
-                          <div className={card.suit === '♥' || card.suit === '♦' ? 'text-red-600' : 'text-black'}>
-                            {card.suit}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                ))}
+              <div className="grid grid-cols-7 gap-3">
+                {cards.length === 0 ? (
+                  Array.from({ length: 7 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="aspect-[2/3] bg-muted border-2 border-border rounded-lg flex items-center justify-center"
+                    >
+                      <Icon name="HelpCircle" size={40} className="text-muted-foreground" />
+                    </div>
+                  ))
+                ) : (
+                  cards.map((card, i) => (
+                    <div
+                      key={card.id}
+                      className="aspect-[2/3] bg-white text-black border-4 border-accent rounded-lg flex flex-col items-center justify-center text-3xl md:text-5xl font-bold shadow-lg animate-deal-card"
+                      style={{ animationDelay: `${i * 0.1}s` }}
+                    >
+                      <div className={card.suit === '♥' || card.suit === '♦' ? 'text-red-600' : 'text-black'}>
+                        {card.rank}
+                      </div>
+                      <div className={card.suit === '♥' || card.suit === '♦' ? 'text-red-600' : 'text-black'}>
+                        {card.suit}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </Card>
 
@@ -367,15 +342,7 @@ const Index = () => {
                       </Card>
                     ))}
                   </div>
-                  <div className="mt-4 p-3 bg-accent/20 rounded-lg border border-accent">
-                    <h4 className="font-bold text-foreground mb-2 flex items-center">
-                      <Icon name="Gift" className="mr-2" size={20} />
-                      Бонусная система
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
-                      Каждые 20 игр вы получаете 3-5 бесплатных спинов!
-                    </p>
-                  </div>
+
                 </Card>
               </TabsContent>
               
@@ -390,32 +357,23 @@ const Index = () => {
                   ) : (
                     <div className="space-y-2">
                       {history.map((game) => (
-                        <Card key={game.id} className={`p-3 ${game.bonusTriggered ? 'bg-accent/20 border-accent' : 'bg-muted'}`}>
+                        <Card key={game.id} className="p-3 bg-muted">
                           <div className="space-y-2">
                             <div className="flex justify-between items-center">
-                              <div className="flex items-center gap-2">
-                                {game.bonusTriggered && <Icon name="Gift" size={16} className="text-accent" />}
-                                <span className="font-bold text-foreground text-sm">
-                                  {game.combinations.filter(c => c !== 'Нет комбинации').join(', ') || 'Проигрыш'}
-                                </span>
-                              </div>
+                              <span className="font-bold text-foreground">{game.combination}</span>
                               <Badge variant={game.win > 0 ? 'default' : 'destructive'}>
                                 {game.win > 0 ? `+${game.win}` : `-${game.bet}`} ₽
                               </Badge>
                             </div>
-                            <div className="space-y-1">
-                              {game.cards.map((row, rowIndex) => (
-                                <div key={rowIndex} className="flex gap-1">
-                                  {row.map((card) => (
-                                    <div
-                                      key={card.id}
-                                      className="text-xs bg-white px-1 py-0.5 rounded border border-accent"
-                                    >
-                                      <span className={card.suit === '♥' || card.suit === '♦' ? 'text-red-600' : 'text-black'}>
-                                        {card.rank}{card.suit}
-                                      </span>
-                                    </div>
-                                  ))}
+                            <div className="flex gap-1 flex-wrap">
+                              {game.cards.map((card) => (
+                                <div
+                                  key={card.id}
+                                  className="text-xs bg-white px-1 py-0.5 rounded border border-accent"
+                                >
+                                  <span className={card.suit === '♥' || card.suit === '♦' ? 'text-red-600' : 'text-black'}>
+                                    {card.rank}{card.suit}
+                                  </span>
                                 </div>
                               ))}
                             </div>

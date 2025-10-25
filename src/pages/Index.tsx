@@ -63,7 +63,12 @@ const Index = () => {
   const suits: Suit[] = ['♠', '♥', '♦', '♣'];
 
   const getRandomCard = (): PlayingCard => {
-    const weightedRanks = [...ranks, ...ranks, ...ranks, '2', '3', '4', '5', '6', '7', '8', '9'];
+    const lowRanks = ['2', '3', '4', '5', '6', '7', '8', '9'];
+    const weightedRanks = [
+      ...lowRanks, ...lowRanks, ...lowRanks, ...lowRanks, ...lowRanks,
+      ...lowRanks, ...lowRanks, ...lowRanks, ...lowRanks, ...lowRanks,
+      ...ranks
+    ];
     const suit = suits[Math.floor(Math.random() * suits.length)];
     const rank = weightedRanks[Math.floor(Math.random() * weightedRanks.length)] as Rank;
     return { suit, rank, id: `${rank}${suit}-${Math.random()}` };
